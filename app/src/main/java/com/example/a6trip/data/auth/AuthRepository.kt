@@ -1,9 +1,11 @@
 package com.example.a6trip.data.auth
 
 import android.content.Context
+import com.example.a6trip.ui.model.User
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
+import com.google.firebase.firestore.firestore
 
 class AuthRepository(
     private val auth: FirebaseAuth = Firebase.auth,
@@ -17,7 +19,7 @@ class AuthRepository(
     }
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-
+    private val db = Firebase.firestore
     val currentUser get() = auth.currentUser
     val isLoggedIn get() = currentUser != null
 
@@ -41,13 +43,30 @@ class AuthRepository(
 
     fun signIn(email: String, password: String, onResult: (Result<Unit>) -> Unit) {
         auth.signInWithEmailAndPassword(email, password)
+
             .addOnSuccessListener { onResult(Result.success(Unit)) }
             .addOnFailureListener { onResult(Result.failure(it)) }
     }
 
-    fun signUp(email: String, password: String, onResult: (Result<Unit>) -> Unit) {
-        auth.createUserWithEmailAndPassword(email, password)
-            .addOnSuccessListener { onResult(Result.success(Unit)) }
+    fun signUp(email: String, password: String, name: String,cpf: String,  onResult: (Result<Unit>) -> Unit) {
+            auth.createUserWithEmailAndPassword(email, password)
+            /*
+            .addOnSuccessListener {
+                onResult(Result.success(Unit))
+                val uid = auth.currentUser!!.uid
+                db.collection("users").document(uid + "").set(User(name,email,cpf));
+            }
+             */
+                .addOnCompleteListener{
+                    if(it.isSuccessful){
+                        auth.currentUser?.sendEmailVerification()
+                            ?.addOnCompleteListener{
+                                onResult(Result.success(Unit))
+                                val uid = auth.currentUser!!.uid
+                                db.collection("users").document(uid + "").set(User(name,email,cpf));
+                            }
+                    }
+                }
             .addOnFailureListener { onResult(Result.failure(it)) }
     }
 

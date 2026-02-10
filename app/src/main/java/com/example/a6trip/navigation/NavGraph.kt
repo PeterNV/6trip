@@ -9,6 +9,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.a6trip.data.auth.AuthRepository
 import com.example.a6trip.ui.screens.home.HomeScreen
 import com.example.a6trip.ui.screens.login.LoginScreen
+import com.example.a6trip.ui.screens.register.RegisterScreen
 import com.example.a6trip.ui.screens.welcome.WelcomeScreen
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
@@ -17,6 +18,7 @@ object Routes {
     const val WELCOME = "welcome"
     const val LOGIN = "login"
     const val HOME = "home"
+    const val REGISTER = "register"
 }
 
 @Composable
@@ -44,6 +46,11 @@ fun AppNavGraph() {
             LoginScreen(
                 authRepository = authRepo,
                 onBack = { navController.popBackStack() },
+                onRegister = {
+                    navController.navigate(Routes.REGISTER) {
+
+                    }
+                },
                 onLoginSuccess = {
                     navController.navigate(Routes.HOME) {
                         popUpTo(Routes.LOGIN) { inclusive = true }
@@ -57,6 +64,17 @@ fun AppNavGraph() {
                     authRepo.signOut()
                     navController.navigate(Routes.WELCOME) {
                         popUpTo(Routes.HOME) { inclusive = true }
+                    }
+                }
+            )
+        }
+        composable(Routes.REGISTER) {
+            RegisterScreen(
+                authRepository = authRepo,
+                onBack = { navController.popBackStack() },
+                onResgisterSuccess = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(Routes.REGISTER) { inclusive = true }
                     }
                 }
             )

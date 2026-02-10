@@ -41,6 +41,7 @@ android {
 }
 
 dependencies {
+    implementation("br.com.colman.simplecpfvalidator:simple-cpf-validator:2.8.0")
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

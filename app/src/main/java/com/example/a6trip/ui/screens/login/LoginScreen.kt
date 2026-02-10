@@ -1,5 +1,9 @@
 package com.example.a6trip.ui.screens.login
 
+import android.app.Activity
+import android.content.Intent
+import android.content.Intent.FLAG_ACTIVITY_NO_HISTORY
+import android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -57,6 +61,7 @@ fun LoginScreen(
     authRepository: AuthRepository,
     onBack: () -> Unit,
     onLoginSuccess: () -> Unit,
+    onRegister: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var email by rememberSaveable { mutableStateOf("") }
@@ -232,17 +237,7 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(12.dp))
         OutlinedButton(
             onClick = {
-                if (email.isBlank() || password.isBlank()) {
-                    Toast.makeText(context, "Preencha e-mail e senha para cadastrar.", Toast.LENGTH_SHORT).show()
-                    return@OutlinedButton
-                }
-                authRepository.signUp(email, password) { result ->
-                    result.onSuccess {
-                        Toast.makeText(context, "Conta criada. Faça login.", Toast.LENGTH_LONG).show()
-                    }.onFailure {
-                        Toast.makeText(context, "Cadastro falhou: ${it.message}", Toast.LENGTH_LONG).show()
-                    }
-                }
+                onRegister()
             },
             modifier = Modifier
                 .fillMaxWidth()
