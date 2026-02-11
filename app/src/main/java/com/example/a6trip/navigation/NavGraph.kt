@@ -10,6 +10,7 @@ import com.example.a6trip.data.auth.AuthRepository
 import com.example.a6trip.ui.screens.home.HomeScreen
 import com.example.a6trip.ui.screens.login.LoginScreen
 import com.example.a6trip.ui.screens.register.RegisterScreen
+import com.example.a6trip.ui.screens.resetPassword.ResetPasswordScreen
 import com.example.a6trip.ui.screens.welcome.WelcomeScreen
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
@@ -19,6 +20,7 @@ object Routes {
     const val LOGIN = "login"
     const val HOME = "home"
     const val REGISTER = "register"
+    const val RESET = "reset"
 }
 
 @Composable
@@ -55,7 +57,14 @@ fun AppNavGraph() {
                     navController.navigate(Routes.HOME) {
                         popUpTo(Routes.LOGIN) { inclusive = true }
                     }
-                }
+                },
+
+                onReset =  {
+                    navController.navigate(Routes.RESET) {
+
+                    }
+                },
+
             )
         }
         composable(Routes.HOME) {
@@ -75,6 +84,17 @@ fun AppNavGraph() {
                 onResgisterSuccess = {
                     navController.navigate(Routes.LOGIN) {
                         popUpTo(Routes.REGISTER) { inclusive = true }
+                    }
+                }
+            )
+        }
+        composable(Routes.RESET) {
+            ResetPasswordScreen(
+                authRepository = authRepo,
+                onBack = { navController.popBackStack() },
+                onResetPasswordSuccess = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(Routes.RESET) { inclusive = true }
                     }
                 }
             )

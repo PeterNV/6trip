@@ -1,9 +1,6 @@
 package com.example.a6trip.ui.screens.login
 
-import android.app.Activity
-import android.content.Intent
-import android.content.Intent.FLAG_ACTIVITY_NO_HISTORY
-import android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -20,6 +17,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
@@ -46,6 +46,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.a6trip.data.auth.AuthRepository
@@ -62,11 +63,13 @@ fun LoginScreen(
     onBack: () -> Unit,
     onLoginSuccess: () -> Unit,
     onRegister: () -> Unit,
+    onReset: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var isChecked by rememberSaveable { mutableStateOf(false) }
+    var isCheckedPasswrod by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
@@ -156,7 +159,20 @@ fun LoginScreen(
                     fontSize = 14.sp
                 )
             },
-            visualTransformation = PasswordVisualTransformation(),
+            visualTransformation = if(!isCheckedPasswrod) PasswordVisualTransformation() else VisualTransformation.None,
+            trailingIcon = { // Add the eye icon as a trailing icon
+                val image = if (isCheckedPasswrod)
+                    Icons.Filled.Visibility // Open eye icon
+                else
+                    Icons.Filled.VisibilityOff // Closed/crossed-out eye icon
+
+                // Localized description for accessibility
+                val description = if (isCheckedPasswrod) "Hide password" else "Show password"
+
+                IconButton(onClick = { isCheckedPasswrod = !isCheckedPasswrod }) {
+                    Icon(imageVector = image, contentDescription = description)
+                }
+            },
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Black,
                 unfocusedBorderColor = BorderLight,
@@ -191,7 +207,9 @@ fun LoginScreen(
             )
             Spacer(modifier = Modifier.weight(1f))
             Button(
-                onClick = { },
+                onClick = {
+                    onReset()
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
                 elevation = ButtonDefaults.buttonElevation(0.dp)
             ) {
