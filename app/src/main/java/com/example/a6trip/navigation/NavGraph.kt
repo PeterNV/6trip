@@ -48,27 +48,19 @@ fun AppNavGraph() {
             LoginScreen(
                 authRepository = authRepo,
                 onBack = { navController.popBackStack() },
-                onRegister = {
-                    navController.navigate(Routes.REGISTER) {
-
-                    }
-                },
+                onRegister = { navController.navigate(Routes.REGISTER) },
                 onLoginSuccess = {
                     navController.navigate(Routes.HOME) {
                         popUpTo(Routes.LOGIN) { inclusive = true }
                     }
                 },
-
-                onReset =  {
-                    navController.navigate(Routes.RESET) {
-
-                    }
-                },
+                onReset = { navController.navigate(Routes.RESET) },
 
             )
         }
         composable(Routes.HOME) {
             HomeScreen(
+                authRepository = authRepo,
                 onSignOut = {
                     authRepo.signOut()
                     navController.navigate(Routes.WELCOME) {
@@ -81,7 +73,7 @@ fun AppNavGraph() {
             RegisterScreen(
                 authRepository = authRepo,
                 onBack = { navController.popBackStack() },
-                onResgisterSuccess = {
+                onRegisterSuccess = {
                     navController.navigate(Routes.LOGIN) {
                         popUpTo(Routes.REGISTER) { inclusive = true }
                     }

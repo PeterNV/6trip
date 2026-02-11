@@ -48,30 +48,22 @@ class AuthRepository(
             .addOnFailureListener { onResult(Result.failure(it)) }
     }
 
-    fun signUp(email: String, password: String, name: String,cpf: String,  onResult: (Result<Unit>) -> Unit) {
-            auth.createUserWithEmailAndPassword(email, password)
-            /*
-            .addOnSuccessListener {
-                onResult(Result.success(Unit))
-                val uid = auth.currentUser!!.uid
-                db.collection("users").document(uid + "").set(User(name,email,cpf));
-            }
-             */
-                .addOnCompleteListener{
-                    if(it.isSuccessful){
-                        auth.currentUser?.sendEmailVerification()
-                            ?.addOnCompleteListener{
-                                onResult(Result.success(Unit))
-                                val uid = auth.currentUser!!.uid
-                                db.collection("users").document(uid + "").set(User(name,email,cpf));
-                            }
-                    }
+    fun signUp(email: String, password: String, name: String, cpf: String, onResult: (Result<Unit>) -> Unit) {
+        auth.createUserWithEmailAndPassword(email, password)
+            .addOnCompleteListener {
+                if (it.isSuccessful) {
+                    auth.currentUser?.sendEmailVerification()
+                        ?.addOnCompleteListener {
+                            onResult(Result.success(Unit))
+                            val uid = auth.currentUser!!.uid
+                            db.collection("users").document(uid).set(User(name, email, cpf))
+                        }
                 }
+            }
             .addOnFailureListener { onResult(Result.failure(it)) }
     }
 
     fun resetPassword(email: String, onResult: (Result<Unit>) -> Unit) {
-        
         auth.sendPasswordResetEmail(email)
             .addOnSuccessListener {
                 onResult(Result.success(Unit))
@@ -81,9 +73,28 @@ class AuthRepository(
             }
     }
 
-
     fun signOut() {
         auth.signOut()
+    }
+
+    fun getCurrentUserProfile(onResult: (Result<User?>) -> Unit) {
+        val uid = auth.currentUser?.uid ?: run {
+            onResult(Result.success(null))
+            return
+        }
+        db.collection("users").document(uid)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                if (snapshot.exists()) {
+                    val name = snapshot.getString("name") ?: ""
+                    val email = snapshot.getString("email") ?: ""
+                    val cpf = snapshot.getString("cpf") ?: ""
+                    onResult(Result.success(User(name, email, cpf)))
+                } else {
+                    onResult(Result.success(null))
+                }
+            }
+            .addOnFailureListener { e -> onResult(Result.failure(e)) }
     }
 
     data class SavedCredentials(val email: String, val senha: String)
