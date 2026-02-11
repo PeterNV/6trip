@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -26,8 +28,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.a6trip.ui.components.Logo6Trip
+import com.example.a6trip.ui.components.TopBarPlaceholder
 import com.example.a6trip.ui.theme.Black
 import com.example.a6trip.ui.theme.White
+import com.example.a6trip.ui.theme.responsiveHorizontalPadding
+import com.example.a6trip.ui.theme.responsiveLogoSizeLarge
+import com.example.a6trip.ui.theme.responsiveSpacerLarge
+import com.example.a6trip.ui.theme.responsiveSpacerMedium
+import com.example.a6trip.ui.theme.responsiveSpacerSmall
+import com.example.a6trip.ui.theme.responsiveButtonHeight
 
 @Composable
 fun WelcomeScreen(
@@ -53,36 +62,46 @@ fun WelcomeScreen(
         modifier = modifier
             .fillMaxSize()
             .background(White)
-            .padding(32.dp)
             .alpha(alpha),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Logo6Trip(size = 220.dp)
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(
-            text = "6Trip",
-            fontSize = 36.sp,
-            fontWeight = FontWeight.Bold,
-            color = Black
-        )
-        Spacer(modifier = Modifier.height(48.dp))
-        Button(
-            onClick = onNavigateToLogin,
+        TopBarPlaceholder()
+        Column(
             modifier = Modifier
-                .padding(horizontal = 48.dp)
-                .height(52.dp),
-            shape = RoundedCornerShape(26.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Black,
-                contentColor = White
-            )
+                .fillMaxSize()
+                .padding(horizontal = responsiveHorizontalPadding())
+                .padding(vertical = responsiveSpacerMedium()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
+            Logo6Trip(size = responsiveLogoSizeLarge())
+            Spacer(modifier = Modifier.height(responsiveSpacerSmall()))
             Text(
-                text = "Entrar",
+                text = "6Trip",
+                fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
+                color = Black
             )
+            Spacer(modifier = Modifier.height(responsiveSpacerLarge()))
+            Button(
+                onClick = onNavigateToLogin,
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .widthIn(max = 320.dp)
+                    .height(responsiveButtonHeight()),
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Black,
+                    contentColor = White
+                ),
+                elevation = ButtonDefaults.buttonElevation(0.dp)
+            ) {
+                Text(
+                    text = "Entrar",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp
+                )
+            }
         }
     }
 }
