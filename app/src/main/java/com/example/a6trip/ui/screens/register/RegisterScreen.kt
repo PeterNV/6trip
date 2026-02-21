@@ -163,7 +163,12 @@ fun RegisterScreen(
                     Spacer(modifier = Modifier.height(responsiveSpacerSmall()))
                     OutlinedTextField(
                         value = cpf,
-                        onValueChange = { cpf = it },
+                        onValueChange = {
+                            val digitsOnly = it.filter { char -> char.isDigit() }
+                            if (digitsOnly.length <= 11) {
+                                cpf = digitsOnly
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .border(
