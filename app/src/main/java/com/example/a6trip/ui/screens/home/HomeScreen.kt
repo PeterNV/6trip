@@ -121,85 +121,81 @@ fun HomeScreen(
                     }
                 }
             }
-            BoxWithConstraints(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
+                    .padding(top = 0.dp, start = 4.dp, end = 24.dp, bottom = 24.dp)
             ) {
-                val maxHeight = maxHeight
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(maxHeight)
-                        .padding(top = 0.dp, start = 4.dp, end = 24.dp, bottom = 24.dp)
-                ) {
-                    when {
-                        isLoading -> {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(40.dp),
-                                        color = Black,
-                                        strokeWidth = 2.dp
-                                    )
-                                    Spacer(modifier = Modifier.height(responsiveSpacerSmall()))
-                                    Text(
-                                        text = "Carregando...",
-                                        fontSize = 14.sp,
-                                        color = TextSecondary
-                                    )
-                                }
-                            }
-                        }
-                        loadError != null -> {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(
-                                        text = "Não foi possível carregar seu perfil.",
-                                        fontSize = 16.sp,
-                                        color = TextPrimary,
-                                        textAlign = TextAlign.Center
-                                    )
-                                    Text(
-                                        text = loadError ?: "",
-                                        fontSize = 12.sp,
-                                        color = TextSecondary,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            }
-                        }
-                        else -> {
-                            val displayName = userProfile?.name?.takeIf { it.isNotBlank() }
-                                ?: authRepository.currentUser?.email?.substringBefore('@')
-                                ?: "Usuário"
-                            Row(
-                                modifier = Modifier.align(Alignment.TopCenter),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(2.dp)
-                            ) {
-                                Logo6Trip(size = responsiveLogoSizeSmall())
+                when {
+                    isLoading -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(40.dp),
+                                    color = Black,
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.height(responsiveSpacerSmall()))
                                 Text(
-                                    text = "Olá, $displayName!",
-                                    fontSize = 22.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Black
+                                    text = "Carregando...",
+                                    fontSize = 14.sp,
+                                    color = TextSecondary
                                 )
                             }
                         }
                     }
+
+                    loadError != null -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = "Não foi possível carregar seu perfil.",
+                                    fontSize = 16.sp,
+                                    color = TextPrimary,
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    text = loadError ?: "",
+                                    fontSize = 12.sp,
+                                    color = TextSecondary,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+
+                    else -> {
+                        val displayName = userProfile?.name?.takeIf { it.isNotBlank() }
+                            ?: authRepository.currentUser?.email?.substringBefore('@')
+                            ?: "Usuário"
+                        Row(
+                            modifier = Modifier.align(Alignment.TopCenter),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Logo6Trip(size = responsiveLogoSizeSmall())
+                            Text(
+                                text = "Olá, $displayName!",
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Black
+                            )
+                        }
+                    }
                 }
             }
-            BottomBranding()
         }
+        BottomBranding()
     }
 }
+
 
 @Composable
 private fun DrawerContent(
