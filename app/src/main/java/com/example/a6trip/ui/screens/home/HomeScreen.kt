@@ -1,11 +1,15 @@
 package com.example.a6trip.ui.screens.home
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,7 +21,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DoorFront
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+
+
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
@@ -37,11 +43,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.example.a6trip.data.auth.AuthRepository
 import com.example.a6trip.ui.components.Logo6Trip
 import com.example.a6trip.ui.model.User
@@ -52,6 +60,10 @@ import com.example.a6trip.ui.theme.TextSecondary
 import com.example.a6trip.ui.theme.White
 import com.example.a6trip.ui.theme.responsiveLogoSizeSmall
 import com.example.a6trip.ui.theme.responsiveSpacerSmall
+
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
 import kotlinx.coroutines.launch
 
 private val DrawerWidth = 280.dp
@@ -66,6 +78,7 @@ fun HomeScreen(
     var userProfile by remember { mutableStateOf<User?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf<String?>(null) }
+    var selectedScreen by remember { mutableStateOf("Início") }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
@@ -75,23 +88,31 @@ fun HomeScreen(
             result.onSuccess { userProfile = it }
             result.onFailure { loadError = it.message }
         }
+
     }
 
     ModalNavigationDrawer(
         modifier = modifier.fillMaxSize(),
         drawerState = drawerState,
+        gesturesEnabled = selectedScreen != "Mapa",
         drawerContent = {
             DrawerContent(
-                onCategoryClick = { scope.launch { drawerState.close() } },
+                onCategoryClick = { label ->
+                    selectedScreen = label
+                    scope.launch { drawerState.close() }
+                },
                 onSettingsClick = { scope.launch { drawerState.close() } }
             )
         }
     ) {
+
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(SurfaceLight)
         ) {
+
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = White,
@@ -114,7 +135,7 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.weight(1f))
                     IconButton(onClick = onSignOut) {
                         Icon(
-                            imageVector = Icons.Filled.DoorFront,
+                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                             contentDescription = "Sair",
                             tint = Black
                         )
@@ -172,27 +193,44 @@ fun HomeScreen(
                     }
 
                     else -> {
-                        val displayName = userProfile?.name?.takeIf { it.isNotBlank() }
-                            ?: authRepository.currentUser?.email?.substringBefore('@')
-                            ?: "Usuário"
-                        Row(
-                            modifier = Modifier.align(Alignment.TopCenter),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                            Logo6Trip(size = responsiveLogoSizeSmall())
-                            Text(
-                                text = "Olá, $displayName!",
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Black
-                            )
+                        when (selectedScreen) {
+
+                            "Início" -> {
+                                val displayName = userProfile?.name?.takeIf { it.isNotBlank() }
+                                    ?: authRepository.currentUser?.email?.substringBefore('@')
+                                    ?: "Usuário"
+
+                                Row(
+                                    modifier = Modifier.align(Alignment.TopCenter),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Logo6Trip(size = responsiveLogoSizeSmall())
+                                    Text(
+                                        text = "Olá, $displayName!",
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Black
+                                    )
+                                }
+                            }
+
+                            "Mapa" -> {
+                                MapPage()
+                            }
+
+                            "Inventário" -> {
+                                Text("Tela de Inventário")
+                            }
                         }
+
+
+
                     }
                 }
             }
         }
         BottomBranding()
+
     }
 }
 
@@ -228,7 +266,10 @@ private fun DrawerContent(
                     .clickable(
                         interactionSource = interactionSource,
                         indication = null,
-                        onClick = { onCategoryClick(label) }
+                        onClick = { onCategoryClick(label)
+                            Log.d(String.toString(), "Selecionado:$label")
+
+                        }
                     )
             )
         }
@@ -264,8 +305,29 @@ private fun DrawerContent(
         }
     }
 }
+@Composable
+fun MapPage(modifier: Modifier = Modifier){
+    /*
+    val launcher = rememberLauncherForActivityResult(contract =
+        ActivityResultContracts.RequestPermission(), onResult = {} )
+
+     */
+    //launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+    val context = LocalContext.current
+    val hasLocationPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context,
+                Manifest.permission.ACCESS_FINE_LOCATION) ==
+                    PackageManager.PERMISSION_GRANTED
+        )
+    }
+    GoogleMap(modifier = modifier.fillMaxSize(),
+            properties = MapProperties(isMyLocationEnabled = hasLocationPermission),
+            uiSettings = MapUiSettings(myLocationButtonEnabled = true)
+        ) {}
 
 
+}
 @Composable
 private fun BottomBranding(modifier: Modifier = Modifier) {
     Surface(
@@ -273,6 +335,7 @@ private fun BottomBranding(modifier: Modifier = Modifier) {
         color = White,
         shadowElevation = 0.dp
     ) {
+        /*
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -293,5 +356,7 @@ private fun BottomBranding(modifier: Modifier = Modifier) {
                 )
             }
         }
+
+         */
     }
 }
