@@ -204,6 +204,9 @@ private fun DrawerContent(
     modifier: Modifier = Modifier
 ) {
     val categories = listOf("Início", "Mapa", "Inventário")
+
+    val interactionSource = remember { MutableInteractionSource() }
+
     Column(
         modifier = modifier
             .fillMaxHeight()
@@ -223,19 +226,21 @@ private fun DrawerContent(
                     .fillMaxWidth()
                     .padding(vertical = 14.dp, horizontal = 12.dp)
                     .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
+                        interactionSource = interactionSource,
                         indication = null,
                         onClick = { onCategoryClick(label) }
                     )
             )
         }
+
         Spacer(modifier = Modifier.weight(1f))
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 14.dp, horizontal = 12.dp)
                 .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
+                    interactionSource = interactionSource,
                     indication = null,
                     onClick = onSettingsClick
                 ),
@@ -259,6 +264,7 @@ private fun DrawerContent(
         }
     }
 }
+
 
 @Composable
 private fun BottomBranding(modifier: Modifier = Modifier) {
