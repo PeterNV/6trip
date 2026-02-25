@@ -59,27 +59,28 @@ fun WelcomeScreen(
         label = "welcome_alpha"
     )
 
-    val context = LocalContext.current
+       val context = LocalContext.current
 
-    val locationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        // Você pode tratar aqui se quiser
-    }
-    LaunchedEffect(Unit) {
-        visible = true
+       val locationPermissionLauncher = rememberLauncherForActivityResult(
+           contract = ActivityResultContracts.RequestPermission()
+       ) { isGranted ->
+           // Você pode tratar aqui se quiser
+       }
 
-        val permissionCheck = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        )
+       LaunchedEffect(Unit) {
+           visible = true
 
-        if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
-            locationPermissionLauncher.launch(
-                Manifest.permission.ACCESS_FINE_LOCATION
-            )
-        }
-    }
+           val permissionCheck = ContextCompat.checkSelfPermission(
+               context,
+               Manifest.permission.ACCESS_FINE_LOCATION
+           )
+
+           if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
+               locationPermissionLauncher.launch(
+                   Manifest.permission.ACCESS_FINE_LOCATION
+               )
+           }
+       }
 
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) onNavigateToHome()

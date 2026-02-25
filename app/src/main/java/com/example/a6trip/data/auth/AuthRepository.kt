@@ -1,6 +1,7 @@
 package com.example.a6trip.data.auth
 
 import android.content.Context
+import com.example.a6trip.ui.model.Place
 import com.example.a6trip.ui.model.User
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
@@ -62,7 +63,14 @@ class AuthRepository(
             }
             .addOnFailureListener { onResult(Result.failure(it)) }
     }
-
+    fun saveLocalData(namePicture: String, name: String, categoria: String, descricao: String, onResult: (Result<Unit>) -> Unit){
+        db.collection("place").document().set(Place(namePicture,name, categoria, descricao)).addOnSuccessListener {
+            onResult(Result.success(Unit))
+            }
+            .addOnFailureListener { exception ->
+                onResult(Result.failure(exception))
+            }
+    }
     fun resetPassword(email: String, onResult: (Result<Unit>) -> Unit) {
         auth.sendPasswordResetEmail(email)
             .addOnSuccessListener {
