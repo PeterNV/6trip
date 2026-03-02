@@ -3,10 +3,12 @@ package com.example.a6trip.ui.screens.home
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.launch
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,8 +28,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.CameraAlt
@@ -57,6 +61,7 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -91,6 +96,7 @@ import com.example.a6trip.ui.theme.responsiveSpacerSmall
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.Scope
+import com.google.android.gms.maps.GoogleMap
 import com.google.api.client.extensions.android.http.AndroidHttp
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.ByteArrayContent
@@ -104,11 +110,13 @@ import com.google.maps.android.compose.MapUiSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
+import java.io.FileOutputStream
 
 private val DrawerWidth = 280.dp
 private val TopBarHeight = 56.dp
@@ -132,7 +140,6 @@ fun HomeScreen(
             result.onSuccess { userProfile = it }
             result.onFailure { loadError = it.message }
         }
-
     }
 
     ModalNavigationDrawer(
@@ -149,14 +156,11 @@ fun HomeScreen(
             )
         }
     ) {
-
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(SurfaceLight)
         ) {
-
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = White,
@@ -238,7 +242,6 @@ fun HomeScreen(
 
                     else -> {
                         when (selectedScreen) {
-
                             "Início" -> {
                                 val displayName = userProfile?.name?.takeIf { it.isNotBlank() }
                                     ?: authRepository.currentUser?.email?.substringBefore('@')
@@ -259,27 +262,20 @@ fun HomeScreen(
                             }
 
                             "Mapa" -> {
-                                MapPage(
-                                    modifier = Modifier
-                                )
+                                MapPage(modifier = Modifier)
                             }
 
                             "Inventário" -> {
                                 Text("Tela de Inventário")
                             }
                         }
-
-
-
                     }
                 }
             }
         }
         BottomBranding()
-
     }
 }
-
 
 @Composable
 private fun DrawerContent(
@@ -288,7 +284,6 @@ private fun DrawerContent(
     modifier: Modifier = Modifier
 ) {
     val categories = listOf("Início", "Mapa", "Inventário")
-
     val interactionSource = remember { MutableInteractionSource() }
 
     Column(
@@ -312,9 +307,9 @@ private fun DrawerContent(
                     .clickable(
                         interactionSource = interactionSource,
                         indication = null,
-                        onClick = { onCategoryClick(label)
-                            Log.d(toString(), "Selecionado:$label")
-
+                        onClick = {
+                            onCategoryClick(label)
+                            Log.d("DRAWER", "Selecionado: $label")
                         }
                     )
             )
@@ -353,139 +348,120 @@ private fun DrawerContent(
 }
 
 @Composable
-fun MapPage(
-    modifier: Modifier = Modifier,
-) {
+fun MapPage(modifier: Modifier = Modifier) {
     var showMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    var latitude by remember { mutableStateOf(0.0) }
-    var longitude by remember { mutableStateOf(0.0) }
-    val hasLocationPermission =
-        ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
+    var latitude by remember { mutableDoubleStateOf(0.0) }
+    var longitude by remember { mutableDoubleStateOf(0.0) }
+
+    val hasLocationPermission = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+
     if(hasLocationPermission){
-        Text("")
         GoogleMap(
             modifier = modifier.fillMaxSize(),
-            properties = MapProperties(
-                isMyLocationEnabled = hasLocationPermission
-            ),
-            uiSettings = MapUiSettings(
-                myLocationButtonEnabled = true
-            )
+            properties = MapProperties(isMyLocationEnabled = true),
+            uiSettings = MapUiSettings(myLocationButtonEnabled = true)
         ) {
-
-            // ✅ AGORA está no lugar correto
             MapEffect { map ->
-
                 map.setOnMyLocationButtonClickListener {
-
-                    val location = map.myLocation
-                    location?.let {
+                    map.myLocation?.let {
                         latitude = it.latitude
                         longitude = it.longitude
                         showMenu = true
                     }
-
                     false
                 }
             }
         }
-    }else{
-        Text("Ative sua localização para adicionar um novo estabelecimento, e visualizar diferentes lugares em tempo real.",
+    } else {
+        Text("Ative sua localização para interagir com o mapa.",
             fontWeight = FontWeight.Bold,
             fontStyle = FontStyle.Italic,
             fontSize = 14.sp,
             modifier = Modifier.padding(top = 14.dp, start = 27.dp))
     }
 
-
     if (showMenu) {
         MyLocationMenu(
             latitude = latitude,
-            longitude = longitude
+            longitude = longitude,
+            onDismiss = { showMenu = false }
         )
     }
-
 }
-/*
-suspend fun uploadToCloudinary(
+
+// Lógica de Processamento de Imagem e Upload
+suspend fun saveAndUploadToCloudinary(
     context: Context,
-    imageUri: Uri
+    bitmap: Bitmap,
+    latitude: Double,
+    longitude: Double
 ): String? {
+    return withContext(Dispatchers.IO) {
+        try {
+            // Nome do arquivo baseado nas coordenadas conforme solicitado
+            val fileName = "lat_${latitude}_long_${longitude}.jpg"
+            val file = File(context.cacheDir, fileName)
 
-    return try {
+            FileOutputStream(file).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+            }
 
-        val inputStream = context.contentResolver.openInputStream(imageUri)
-        val bytes = inputStream?.readBytes() ?: return null
+            val requestFile = file.readBytes().toRequestBody("image/jpeg".toMediaTypeOrNull())
+            val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
+            val preset = "ml_default".toRequestBody("text/plain".toMediaType())
 
-        val requestFile =
-            //bytes.toRequestBody("image/#".toMediaTypeOrNull())
+            val response = CloudinaryClient.api.uploadImage("duectt1dt", body, preset)
 
-        val body = MultipartBody.Part.createFormData(
-            "file",
-            "image.jpg",
-            requestFile
-        )
-
-        val preset =
-            "ml_default".toRequestBody("text/plain".toMediaType())
-
-        val response = CloudinaryClient.api.uploadImage(
-            "duectt1dt",
-            body,
-            preset
-        )
-
-        if (response.isSuccessful) {
-            Log.d("CLOUDINARY", "Sucesso: ${response.body()?.secure_url}")
-            response.body()?.secure_url
-        } else {
-            Log.e("CLOUDINARY", "Erro: ${response.errorBody()?.string()}")
+            if (response.isSuccessful) {
+                Log.d("CLOUDINARY", "URL: ${response.body()?.secure_url}")
+                response.body()?.secure_url
+            } else {
+                Log.e("CLOUDINARY", "Erro: ${response.errorBody()?.string()}")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e("CLOUDINARY", "Exception: ", e)
             null
         }
-
-    } catch (e: Exception) {
-        Log.e("CLOUDINARY", "Exception:", e)
-        null
     }
 }
-*/
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MyLocationMenu(latitude: Double,
-                   longitude: Double){
-    var showMap by remember { mutableStateOf(false) }
+fun MyLocationMenu(latitude: Double, longitude: Double, onDismiss: () -> Unit) {
     var nomeLocal by rememberSaveable { mutableStateOf("") }
     var descricao by rememberSaveable { mutableStateOf("") }
     var expanded by remember { mutableStateOf(false) }
     var selectedOption by remember { mutableStateOf("Alimentação") }
+    var capturedBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var isUploading by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val categorias = listOf("Alimentação", "Cultura", "Compras", "Turismo", "Serviços", "Religioso", "Histórico", "Natureza")
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        capturedBitmap = bitmap
+    }
+
     Column(
         modifier = Modifier
             .padding(6.dp)
-            .background(color = White, shape = RoundedCornerShape(15.dp)
-            )
+            .background(color = White, shape = RoundedCornerShape(15.dp))
             .border(3.dp, color = Color.Transparent, RoundedCornerShape(12.dp))
-            .padding(48.dp).height(675.dp)
+            .padding(24.dp)
+            .fillMaxHeight(0.9f)
+            .verticalScroll(rememberScrollState())
     ) {
         Row(modifier = Modifier.fillMaxWidth()){
-            Button(
-                onClick = {
-                    showMap = true
-                },
-
-                shape = RoundedCornerShape(26.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Black,
-                    contentColor = White,
-                    disabledContainerColor = TextSecondary.copy(alpha = 0.4f),
-                    disabledContentColor = White
-                ),
-            ) {
-                Text("X")
+            IconButton(onClick = onDismiss) {
+                Text("X", fontWeight = FontWeight.Bold, color = Black)
             }
             Text("Adicionar estabelecimento",
                 fontWeight = FontWeight.Bold,
@@ -494,222 +470,101 @@ fun MyLocationMenu(latitude: Double,
                 modifier = Modifier.padding(top = 14.dp, start = 27.dp)
             )
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(text = "Latitude: $latitude")
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(text = "Longitude: $longitude")
-        Spacer(modifier = Modifier.height(8.dp))
+
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(text = "Lat: $latitude / Long: $longitude", fontSize = 12.sp, color = TextSecondary)
+
+        Spacer(modifier = Modifier.height(12.dp))
         OutlinedTextField(
             value = nomeLocal,
             onValueChange = { nomeLocal = it },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            placeholder = {
-                Text(
-                    "Nome do estabelecimento",
-                    fontStyle = FontStyle.Italic,
-                    color = TextSecondary,
-                    fontSize = 14.sp
-                )
-            },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Black,
-                unfocusedBorderColor = BorderLight,
-                focusedTextColor = Black,
-                unfocusedTextColor = Black,
-                cursorColor = Black,
-                focusedContainerColor = White,
-                unfocusedContainerColor = White
-            ),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+            placeholder = { Text("Nome do local", fontStyle = FontStyle.Italic, fontSize = 14.sp) },
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Black, cursorColor = Black)
         )
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = "Categoria",
-            fontStyle = FontStyle.Italic,
-            fontSize = 14.sp,
-            color = TextSecondary,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(modifier = Modifier.height(8.dp))
 
+        Spacer(modifier = Modifier.height(12.dp))
         ExposedDropdownMenuBox(
             expanded = expanded,
             onExpandedChange = { expanded = !expanded },
         ) {
-
             TextField(
                 value = selectedOption,
                 onValueChange = {},
                 readOnly = true,
-                trailingIcon = {
-                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier.fillMaxWidth().menuAnchor().border(1.dp, color = BorderLight, shape = RoundedCornerShape(16.dp)),
                 colors = ExposedDropdownMenuDefaults.textFieldColors(
-                    unfocusedIndicatorColor = Color.Transparent,
-                    focusedIndicatorColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
                     focusedContainerColor = Color.Transparent
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .menuAnchor()
-                    .border(1.dp, color = BorderLight, shape = RoundedCornerShape(16.dp)),
-
+                )
             )
-
-            ExposedDropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
+            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 categorias.forEach { option ->
                     DropdownMenuItem(
-                        text = { Text(option, color = Black) },
-                        onClick = {
-                            selectedOption = option
-                            expanded = false
-                        },
-                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                        text = { Text(option) },
+                        onClick = { selectedOption = option; expanded = false }
                     )
                 }
             }
         }
+
         Spacer(modifier = Modifier.height(12.dp))
         OutlinedTextField(
             value = descricao,
-            onValueChange = {
-                val digitsOnly = it.filter { char -> char.isDefined() }
-                if (digitsOnly.length <= 500) {
-                    descricao = digitsOnly
-                }
-            },
-            modifier = Modifier.fillMaxWidth().height(175.dp),
+            onValueChange = { if (it.length <= 500) descricao = it },
+            modifier = Modifier.fillMaxWidth().height(150.dp),
             shape = RoundedCornerShape(16.dp),
-            placeholder = {
-                Text(
-                    "Descrição",
-                    fontStyle = FontStyle.Italic,
-                    color = TextSecondary,
-                    fontSize = 14.sp
-                )
-            },
-
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Black,
-                unfocusedBorderColor = BorderLight,
-                focusedTextColor = Black,
-                unfocusedTextColor = Black,
-                cursorColor = Black,
-                focusedContainerColor = White,
-                unfocusedContainerColor = White
-            ),
-
+            placeholder = { Text("Descrição", fontStyle = FontStyle.Italic, fontSize = 14.sp) },
             trailingIcon = {
-                Text("${descricao.count()}/500",
-                    color = BorderLight,
-                    fontSize = 10.sp,
-                    modifier = Modifier.padding(top = 128.dp).padding(end = 20.dp)
-                )
-            },
-
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+                Text("${descricao.length}/500", fontSize = 10.sp, modifier = Modifier.padding(top = 100.dp, end = 10.dp))
+            }
         )
-        Spacer(modifier = Modifier.height(12.dp))
-        /*
-        var imageUri by remember { mutableStateOf<Uri?>(null) }
-        val context = LocalContext.current
-        val launcher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.GetContent()
-        ) { uri: Uri? ->
-            imageUri = uri
-        }
 
-         */
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Botão da Câmera
         Button(
-            onClick = {
-                //launcher.launch("image/*")
-            },
-
-            modifier = Modifier.fillMaxWidth().height(responsiveButtonHeight()),
+            onClick = { cameraLauncher.launch() },
+            modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(26.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Black,
-                contentColor = White,
-                disabledContainerColor = TextSecondary.copy(alpha = 0.4f),
-                disabledContentColor = White
-            ),
-            elevation = ButtonDefaults.buttonElevation(0.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Filled.CameraAlt, // Use a default Material icon
-                contentDescription = "Camera" // Provide an accessibility label
+                containerColor = if (capturedBitmap == null) Black else Color(0xFF4CAF50)
             )
+        ) {
+            Icon(imageVector = Icons.Filled.CameraAlt, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text(if (capturedBitmap == null) "Tirar Foto" else "Foto Capturada!")
         }
-        Spacer(modifier = Modifier.height(12.dp))
-        //val scope = rememberCoroutineScope()
 
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Botão Confirmar
         Button(
             onClick = {
-                /*
-                imageUri?.let { uri ->
+                capturedBitmap?.let { bitmap ->
+                    isUploading = true
                     scope.launch {
-                        val url = uploadToCloudinary(context, uri)
+                        val url = saveAndUploadToCloudinary(context, bitmap, latitude, longitude)
+                        isUploading = false
+                        if (url != null) onDismiss()
                     }
                 }
-
-                 */
             },
-
-            modifier = Modifier.fillMaxWidth().height(responsiveButtonHeight()),
+            enabled = capturedBitmap != null && nomeLocal.isNotBlank() && !isUploading,
+            modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(26.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Black,
-                contentColor = White,
-                disabledContainerColor = TextSecondary.copy(alpha = 0.4f),
-                disabledContentColor = White
-            ),
-            elevation = ButtonDefaults.buttonElevation(0.dp)
+            colors = ButtonDefaults.buttonColors(containerColor = Black)
         ) {
-            Text("Confirmar",fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            if (isUploading) CircularProgressIndicator(color = White, modifier = Modifier.size(24.dp))
+            else Text("Confirmar Registro", fontWeight = FontWeight.SemiBold)
         }
-    }
-    if(showMap){
-        MapPage(
-            modifier = Modifier
-        )
     }
 }
 
 @Composable
 private fun BottomBranding(modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = White,
-        shadowElevation = 0.dp
-    ) {
-        /*
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 16.dp, horizontal = 24.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "6Trip",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Black
-                )
-                Text(
-                    text = "Inventário Turístico",
-                    fontSize = 13.sp,
-                    color = TextSecondary
-                )
-            }
-        }
-
-         */
+    Surface(modifier = modifier.fillMaxWidth(), color = White) {
     }
 }
