@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.launch
@@ -41,6 +42,7 @@ import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -80,9 +82,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import coil.compose.AsyncImage
 import com.example.a6trip.data.auth.AuthRepository
 import com.example.a6trip.data.auth.CloudinaryClient
 import com.example.a6trip.ui.components.Logo6Trip
+import com.example.a6trip.ui.model.Place
 import com.example.a6trip.ui.model.User
 import com.example.a6trip.ui.theme.Black
 import com.example.a6trip.ui.theme.BorderLight
@@ -97,6 +101,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.Scope
 import com.google.android.gms.maps.GoogleMap
+import com.google.android.gms.maps.model.LatLng
 import com.google.api.client.extensions.android.http.AndroidHttp
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.ByteArrayContent
@@ -107,6 +112,8 @@ import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapEffect
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -117,6 +124,7 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 import java.io.FileOutputStream
+import kotlin.collections.forEach
 
 private val DrawerWidth = 280.dp
 private val TopBarHeight = 56.dp
@@ -133,13 +141,30 @@ fun HomeScreen(
     var selectedScreen by remember { mutableStateOf("Início") }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        // Você pode tratar aqui se quiser
+    }
 
     LaunchedEffect(Unit) {
         authRepository.getCurrentUserProfile { result ->
             isLoading = false
             result.onSuccess { userProfile = it }
             result.onFailure { loadError = it.message }
+            val permissionCheckCamera = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.CAMERA
+            )
+
+            if (permissionCheckCamera != PackageManager.PERMISSION_GRANTED) {
+                cameraPermissionLauncher.launch(
+                    Manifest.permission.CAMERA
+                )
+            }
         }
+
     }
 
     ModalNavigationDrawer(
@@ -346,25 +371,77 @@ private fun DrawerContent(
         }
     }
 }
+@Composable
+fun showPhoto(authRepository: AuthRepository) {
 
+    var places by remember { mutableStateOf<List<Place>>(emptyList()) }
+    var selectedPlace by remember { mutableStateOf<Place?>(null) }
+
+    LaunchedEffect(Unit) {
+        authRepository.getPlaces { result ->
+            result.onSuccess { places = it }
+        }
+    }
+
+    // Cria os marcadores
+    places.forEach { place ->
+        Marker(
+            state = MarkerState(position = LatLng(place.lat, place.longi)),
+            title = place.name,
+            snippet = place.categoria,
+            onClick = {
+                selectedPlace = place
+                false
+            }
+        )
+    }
+
+    // Dialog separado
+    selectedPlace?.let { place ->
+
+        AlertDialog(
+            onDismissRequest = { selectedPlace = null },
+            confirmButton = {},
+            title = { Text(place.name) },
+            text = {
+                Column {
+                    AsyncImage(
+                        model = place.imageUrl,   // 👈 usa direto
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(place.descricao)
+                }
+            }
+        )
+    }
+}
 @Composable
 fun MapPage(modifier: Modifier = Modifier) {
+
     var showMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
     var latitude by remember { mutableDoubleStateOf(0.0) }
     var longitude by remember { mutableDoubleStateOf(0.0) }
-
+    val authRepository = remember {
+        AuthRepository(context = context)
+    }
     val hasLocationPermission = ContextCompat.checkSelfPermission(
         context,
         Manifest.permission.ACCESS_FINE_LOCATION
     ) == PackageManager.PERMISSION_GRANTED
 
     if(hasLocationPermission){
+
         GoogleMap(
             modifier = modifier.fillMaxSize(),
             properties = MapProperties(isMyLocationEnabled = true),
             uiSettings = MapUiSettings(myLocationButtonEnabled = true)
         ) {
+            showPhoto(authRepository)
             MapEffect { map ->
                 map.setOnMyLocationButtonClickListener {
                     map.myLocation?.let {
@@ -433,14 +510,18 @@ suspend fun saveAndUploadToCloudinary(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyLocationMenu(latitude: Double, longitude: Double, onDismiss: () -> Unit) {
+
+    val context = LocalContext.current
+
+    val authRepository = remember {
+        AuthRepository(context = context)
+    }
     var nomeLocal by rememberSaveable { mutableStateOf("") }
     var descricao by rememberSaveable { mutableStateOf("") }
     var expanded by remember { mutableStateOf(false) }
     var selectedOption by remember { mutableStateOf("Alimentação") }
     var capturedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var isUploading by remember { mutableStateOf(false) }
-
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val categorias = listOf("Alimentação", "Cultura", "Compras", "Turismo", "Serviços", "Religioso", "Histórico", "Natureza")
 
@@ -449,7 +530,10 @@ fun MyLocationMenu(latitude: Double, longitude: Double, onDismiss: () -> Unit) {
     ) { bitmap ->
         capturedBitmap = bitmap
     }
-
+    val hasCameraPermission = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.CAMERA
+    ) == PackageManager.PERMISSION_GRANTED
     Column(
         modifier = Modifier
             .padding(6.dp)
@@ -459,107 +543,151 @@ fun MyLocationMenu(latitude: Double, longitude: Double, onDismiss: () -> Unit) {
             .fillMaxHeight(0.9f)
             .verticalScroll(rememberScrollState())
     ) {
-        Row(modifier = Modifier.fillMaxWidth()){
-            IconButton(onClick = onDismiss) {
-                Text("X", fontWeight = FontWeight.Bold, color = Black)
+        if(hasCameraPermission){
+            Row(modifier = Modifier.fillMaxWidth()){
+                IconButton(onClick = onDismiss) {
+                    Text("X", fontWeight = FontWeight.Bold, color = Black)
+                }
+                Text("Adicionar estabelecimento",
+                    fontWeight = FontWeight.Bold,
+                    fontStyle = FontStyle.Italic,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(top = 14.dp, start = 27.dp)
+                )
             }
-            Text("Adicionar estabelecimento",
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(text = "Lat: $latitude / Long: $longitude", fontSize = 12.sp, color = TextSecondary)
+
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(
+                value = nomeLocal,
+                onValueChange = { nomeLocal = it },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                placeholder = { Text("Nome do local", fontStyle = FontStyle.Italic, fontSize = 14.sp) },
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Black, cursorColor = Black)
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded },
+            ) {
+                TextField(
+                    value = selectedOption,
+                    onValueChange = {},
+                    readOnly = true,
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor().border(1.dp, color = BorderLight, shape = RoundedCornerShape(16.dp)),
+                    colors = ExposedDropdownMenuDefaults.textFieldColors(
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedContainerColor = Color.Transparent
+                    )
+                )
+                ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    categorias.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option) },
+                            onClick = { selectedOption = option; expanded = false }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(
+                value = descricao,
+                onValueChange = { if (it.length <= 500) descricao = it },
+                modifier = Modifier.fillMaxWidth().height(150.dp),
+                shape = RoundedCornerShape(16.dp),
+                placeholder = { Text("Descrição", fontStyle = FontStyle.Italic, fontSize = 14.sp) },
+                trailingIcon = {
+                    Text("${descricao.length}/500", fontSize = 10.sp, modifier = Modifier.padding(top = 100.dp, end = 10.dp))
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Botão da Câmera
+            Button(
+                onClick = { cameraLauncher.launch() },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(26.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (capturedBitmap == null) Black else Color(0xFF4CAF50)
+                )
+            ) {
+                Icon(imageVector = Icons.Filled.CameraAlt, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(if (capturedBitmap == null) "Tirar Foto" else "Foto Capturada!")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Botão Confirmar
+            val fileName = "lat_${latitude}_long_${longitude}.jpg"
+            Button(
+                onClick = {
+                    capturedBitmap?.let { bitmap ->
+                        isUploading = true
+                        scope.launch {
+/*
+                            authRepository.savePlaceData(fileName, nomeLocal, selectedOption, descricao, latitude, longitude){ result ->
+                                result.onSuccess {
+                                    Toast.makeText(context, "Dados Salvos.", Toast.LENGTH_LONG).show()
+
+                                }.onFailure {
+                                    Toast.makeText(context, "Erro: ${it.message}", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                            val url = saveAndUploadToCloudinary(context, bitmap, latitude, longitude)
+                            isUploading = false
+                            if (url != null) onDismiss()
+
+ */
+                            val url = saveAndUploadToCloudinary(context, bitmap, latitude, longitude)
+
+                            if (url != null) {
+
+                                authRepository.savePlaceData(
+                                    fileName,
+                                    nomeLocal,
+                                    selectedOption,
+                                    descricao,
+                                    latitude,
+                                    longitude,
+                                    url   // 👈 passa a URL real
+                                ) { result ->
+                                    result.onSuccess {
+                                        Toast.makeText(context, "Dados Salvos.", Toast.LENGTH_LONG).show()
+                                        onDismiss()
+                                    }.onFailure {
+                                        Toast.makeText(context, "Erro: ${it.message}", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            }
+
+                            isUploading = false
+                        }
+                    }
+                },
+                enabled = capturedBitmap != null && nomeLocal.isNotBlank() && !isUploading,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(26.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Black)
+            ) {
+                if (isUploading) CircularProgressIndicator(color = White, modifier = Modifier.size(24.dp))
+                else Text("Confirmar Registro", fontWeight = FontWeight.SemiBold)
+            }
+        }else{
+            Text("Ative sua câmera para adicionar um novo estabelecimento.",
                 fontWeight = FontWeight.Bold,
                 fontStyle = FontStyle.Italic,
                 fontSize = 14.sp,
-                modifier = Modifier.padding(top = 14.dp, start = 27.dp)
-            )
+                modifier = Modifier.padding(top = 14.dp, start = 27.dp))
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(text = "Lat: $latitude / Long: $longitude", fontSize = 12.sp, color = TextSecondary)
-
-        Spacer(modifier = Modifier.height(12.dp))
-        OutlinedTextField(
-            value = nomeLocal,
-            onValueChange = { nomeLocal = it },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            placeholder = { Text("Nome do local", fontStyle = FontStyle.Italic, fontSize = 14.sp) },
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Black, cursorColor = Black)
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-        ExposedDropdownMenuBox(
-            expanded = expanded,
-            onExpandedChange = { expanded = !expanded },
-        ) {
-            TextField(
-                value = selectedOption,
-                onValueChange = {},
-                readOnly = true,
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                modifier = Modifier.fillMaxWidth().menuAnchor().border(1.dp, color = BorderLight, shape = RoundedCornerShape(16.dp)),
-                colors = ExposedDropdownMenuDefaults.textFieldColors(
-                    unfocusedContainerColor = Color.Transparent,
-                    focusedContainerColor = Color.Transparent
-                )
-            )
-            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                categorias.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option) },
-                        onClick = { selectedOption = option; expanded = false }
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-        OutlinedTextField(
-            value = descricao,
-            onValueChange = { if (it.length <= 500) descricao = it },
-            modifier = Modifier.fillMaxWidth().height(150.dp),
-            shape = RoundedCornerShape(16.dp),
-            placeholder = { Text("Descrição", fontStyle = FontStyle.Italic, fontSize = 14.sp) },
-            trailingIcon = {
-                Text("${descricao.length}/500", fontSize = 10.sp, modifier = Modifier.padding(top = 100.dp, end = 10.dp))
-            }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Botão da Câmera
-        Button(
-            onClick = { cameraLauncher.launch() },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(26.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (capturedBitmap == null) Black else Color(0xFF4CAF50)
-            )
-        ) {
-            Icon(imageVector = Icons.Filled.CameraAlt, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text(if (capturedBitmap == null) "Tirar Foto" else "Foto Capturada!")
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Botão Confirmar
-        Button(
-            onClick = {
-                capturedBitmap?.let { bitmap ->
-                    isUploading = true
-                    scope.launch {
-                        val url = saveAndUploadToCloudinary(context, bitmap, latitude, longitude)
-                        isUploading = false
-                        if (url != null) onDismiss()
-                    }
-                }
-            },
-            enabled = capturedBitmap != null && nomeLocal.isNotBlank() && !isUploading,
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(26.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Black)
-        ) {
-            if (isUploading) CircularProgressIndicator(color = White, modifier = Modifier.size(24.dp))
-            else Text("Confirmar Registro", fontWeight = FontWeight.SemiBold)
-        }
     }
 }
 

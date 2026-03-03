@@ -63,12 +63,23 @@ class AuthRepository(
             }
             .addOnFailureListener { onResult(Result.failure(it)) }
     }
-    fun saveLocalData(namePicture: String, name: String, categoria: String, descricao: String, onResult: (Result<Unit>) -> Unit){
-        db.collection("place").document().set(Place(namePicture,name, categoria, descricao)).addOnSuccessListener {
+    fun savePlaceData(namePicture: String, name: String, categoria: String, descricao: String,lat: Double, longi: Double, imageUrl: String, onResult: (Result<Unit>) -> Unit){
+        db.collection("place").document().set(Place(namePicture,name, categoria, descricao, lat, longi,imageUrl)).addOnSuccessListener {
             onResult(Result.success(Unit))
             }
             .addOnFailureListener { exception ->
                 onResult(Result.failure(exception))
+            }
+    }
+    fun getPlaces(onResult: (Result<List<Place>>) -> Unit) {
+        db.collection("place")
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val places = snapshot.toObjects(Place::class.java)
+                onResult(Result.success(places))
+            }
+            .addOnFailureListener {
+                onResult(Result.failure(it))
             }
     }
     fun resetPassword(email: String, onResult: (Result<Unit>) -> Unit) {
