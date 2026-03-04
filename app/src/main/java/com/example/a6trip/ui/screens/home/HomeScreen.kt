@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
+import android.widget.Button
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,9 +16,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,6 +32,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -45,6 +51,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenuItem
@@ -71,8 +79,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -90,6 +101,7 @@ import com.example.a6trip.ui.model.Place
 import com.example.a6trip.ui.model.User
 import com.example.a6trip.ui.theme.Black
 import com.example.a6trip.ui.theme.BorderLight
+import com.example.a6trip.ui.theme.Red
 import com.example.a6trip.ui.theme.SurfaceLight
 import com.example.a6trip.ui.theme.TextPrimary
 import com.example.a6trip.ui.theme.TextSecondary
@@ -291,7 +303,8 @@ fun HomeScreen(
                             }
 
                             "Inventário" -> {
-                                Text("Tela de Inventário")
+                               // Text("Tela de Inventário")
+                                InventarioTuristicoMenu(modifier = Modifier)
                             }
                         }
                     }
@@ -301,7 +314,297 @@ fun HomeScreen(
         BottomBranding()
     }
 }
+@Composable
+fun InventarioTuristicoMenu(modifier: Modifier = Modifier){
+    //var selectedPlace by remember { mutableStateOf<Place?>(null) }
+    var namePlaces by remember { mutableStateOf("") }
+    var placeFind by remember { mutableStateOf(false) }
+    var showAll by remember { mutableStateOf(false) }
+    var places by remember { mutableStateOf<List<Place>>(emptyList()) }
 
+    val context = LocalContext.current
+    val authRepository = remember {
+        AuthRepository(context = context)
+    }
+    LaunchedEffect(Unit) {
+        authRepository.getPlaces { result ->
+            result.onSuccess {
+                places = it
+            }
+        }
+    }
+    if (places.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Nenhum local cadastrado ainda.",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = TextSecondary
+            )
+        }
+        return
+    }
+
+    if(!placeFind && !showAll){
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp) // 👈 Espaço entre as Rows
+            ) {
+
+                // 🔎 Linha de busca
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+
+                    OutlinedTextField(
+                        value = namePlaces,
+                        onValueChange = { namePlaces = it },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(responsiveButtonHeight()),
+                        shape = RoundedCornerShape(16.dp),
+                        singleLine = true,
+                        placeholder = {
+                            Text(
+                                "Nome do Lugar",
+                                fontStyle = FontStyle.Italic,
+                                color = TextSecondary,
+                                fontSize = 14.sp
+                            )
+                        }
+                    )
+
+                    Button(
+                        onClick = { placeFind = true },
+                        modifier = Modifier
+                            .height(responsiveButtonHeight()),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Black,
+                            contentColor = White
+                        ),
+                        enabled = namePlaces.isNotBlank()
+                    ) {
+                        Text("Buscar")
+                    }
+                }
+
+                // 📋 Botão exibir todos
+                Button(
+                    onClick = { showAll = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(responsiveButtonHeight()),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Black,
+                        contentColor = White
+                    )
+                ) {
+                    Text("Exibir todos")
+                }
+            }
+        }
+
+
+    }else if(showAll && !placeFind){
+        LazyColumn(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(vertical = 16.dp)
+        ) {
+
+            items(places) { place ->
+
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                    colors = CardDefaults.cardColors(containerColor = White),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+
+                        // Título
+                        Row(modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)){
+                            Button(
+                                onClick = {
+                                    placeFind = false
+                                    showAll = false
+                                },
+                                modifier = Modifier.padding(vertical = 0.dp)
+                            ){
+                                Text("X")
+                            }
+                            Text(
+                                text = place.name,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Black,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Start
+                            )
+                        }
+
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // Categoria
+                        Text(
+                            text = place.categoria,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = TextSecondary,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Start
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Imagem
+                        AsyncImage(
+                            model = place.imageUrl,
+                            contentDescription = place.name,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Descrição
+                        Text(
+                            text = place.descricao,
+                            fontSize = 14.sp,
+                            color = TextSecondary,
+                            lineHeight = 20.sp,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Justify
+                        )
+                    }
+
+                }
+            }
+        }
+    }else if(!showAll && placeFind){
+        LazyColumn(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(vertical = 16.dp)
+        ) {
+
+            items(places) { place ->
+
+                if(place.name.toUpperCase() == namePlaces.toUpperCase()){
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                        colors = CardDefaults.cardColors(containerColor = White),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
+
+                            // Título
+                            Row(modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)){
+                                Button(
+                                    onClick = {
+                                        placeFind = false
+                                        showAll = false
+                                    },
+                                    modifier = Modifier.padding(vertical = 0.dp)
+                                ){
+                                    Text("X")
+                                }
+                                Text(
+                                    text = place.name,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Black,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Start
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            // Categoria
+                            Text(
+                                text = place.categoria,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = TextSecondary,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Start
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Imagem
+                            AsyncImage(
+                                model = place.imageUrl,
+                                contentDescription = place.name,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Descrição
+                            Text(
+                                text = place.descricao,
+                                fontSize = 14.sp,
+                                color = TextSecondary,
+                                lineHeight = 20.sp,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Justify
+                            )
+                        }
+
+                    }
+                }
+
+            }
+        }
+    }
+
+}
 @Composable
 private fun DrawerContent(
     onCategoryClick: (String) -> Unit,
@@ -454,11 +757,18 @@ fun MapPage(modifier: Modifier = Modifier) {
             }
         }
     } else {
-        Text("Ative sua localização para interagir com o mapa.",
-            fontWeight = FontWeight.Bold,
-            fontStyle = FontStyle.Italic,
-            fontSize = 14.sp,
-            modifier = Modifier.padding(top = 14.dp, start = 27.dp))
+
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Ative sua localização para interagir com o mapa.",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = TextSecondary
+            )
+        }
     }
 
     if (showMenu) {
