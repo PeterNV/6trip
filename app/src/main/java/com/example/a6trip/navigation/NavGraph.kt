@@ -66,6 +66,13 @@ fun AppNavGraph() {
                     navController.navigate(Routes.WELCOME) {
                         popUpTo(Routes.HOME) { inclusive = true }
                     }
+
+                },
+                onAccountDeleted = {
+                    authRepo.signOut()
+                    navController.navigate(Routes.WELCOME) {
+                        popUpTo(0)   // limpa toda a stack
+                    }
                 }
             )
         }

@@ -1,11 +1,14 @@
 package com.example.a6trip.data.auth
 
 import android.content.Context
+import androidx.compose.runtime.Composable
 import com.example.a6trip.ui.model.Place
 import com.example.a6trip.ui.model.User
 import com.google.firebase.Firebase
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
 
 class AuthRepository(
@@ -96,6 +99,50 @@ class AuthRepository(
         auth.signOut()
     }
 
+    fun deleteAccount(
+        email: String,
+        password: String,
+        onResult: (Result<Unit>) -> Unit
+    ) {
+        val user = FirebaseAuth.getInstance().currentUser
+
+        if (user == null) {
+            onResult(Result.failure(Exception("Usuário não autenticado")))
+            return
+        }
+
+        val credential = EmailAuthProvider.getCredential(email, password)
+
+        user.reauthenticate(credential)
+            .addOnSuccessListener {
+
+                val uid = user.uid
+
+                // Primeiro apaga dados do Firestore
+                FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(uid)
+                    .delete()
+                    .addOnSuccessListener {
+
+                        // Depois apaga conta
+                        user.delete()
+                            .addOnSuccessListener {
+                                onResult(Result.success(Unit))
+                            }
+                            .addOnFailureListener { e ->
+                                onResult(Result.failure(e))
+                            }
+
+                    }
+                    .addOnFailureListener { e ->
+                        onResult(Result.failure(e))
+                    }
+            }
+            .addOnFailureListener { e ->
+                onResult(Result.failure(e))
+            }
+    }
     fun getCurrentUserProfile(onResult: (Result<User?>) -> Unit) {
         val uid = auth.currentUser?.uid ?: run {
             onResult(Result.success(null))
