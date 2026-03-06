@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.location.Geocoder
 import android.net.Uri
 import android.util.Log
 
@@ -14,6 +15,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.launch
 import android.provider.Settings
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,12 +45,22 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.AllInbox
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DisabledByDefault
+import androidx.compose.material.icons.filled.EmojiPeople
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LocationOff
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Map
 
 
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -85,6 +97,7 @@ import androidx.compose.ui.draw.clip
 
 
 import androidx.compose.ui.graphics.Color
+
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
@@ -92,10 +105,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
+
 import com.example.a6trip.data.auth.AuthRepository
 import com.example.a6trip.data.auth.CloudinaryClient
 import com.example.a6trip.ui.components.Logo6Trip
@@ -111,6 +126,7 @@ import com.example.a6trip.ui.theme.White
 import com.example.a6trip.ui.theme.responsiveButtonHeight
 import com.example.a6trip.ui.theme.responsiveLogoSizeSmall
 import com.example.a6trip.ui.theme.responsiveSpacerSmall
+
 
 import com.google.android.gms.maps.model.LatLng
 
@@ -131,6 +147,8 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 import java.io.FileOutputStream
+
+import java.util.Locale
 import kotlin.collections.forEach
 
 private val DrawerWidth = 280.dp
@@ -149,28 +167,15 @@ fun HomeScreen(
     var selectedScreen by remember { mutableStateOf("Início") }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val cameraPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        // Você pode tratar aqui se quiser
-    }
+
+
 
     LaunchedEffect(Unit) {
         authRepository.getCurrentUserProfile { result ->
             isLoading = false
             result.onSuccess { userProfile = it }
             result.onFailure { loadError = it.message }
-            val permissionCheckCamera = ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.CAMERA
-            )
 
-            if (permissionCheckCamera != PackageManager.PERMISSION_GRANTED) {
-                cameraPermissionLauncher.launch(
-                    Manifest.permission.CAMERA
-                )
-            }
         }
 
     }
@@ -299,7 +304,7 @@ fun HomeScreen(
                             }
 
                             "Inventário" -> {
-                               // Text("Tela de Inventário")
+                                // Text("Tela de Inventário")
 
                                 InventarioTuristicoMenu(modifier = Modifier)
                             }
@@ -320,7 +325,7 @@ fun HomeScreen(
 fun Config(onAccountDeleted: () -> Unit,modifier: Modifier = Modifier) {
 
     val context = LocalContext.current
-    val activity = context as Activity
+
 
     val cameraPermission = Manifest.permission.CAMERA
     val locationPermission = Manifest.permission.ACCESS_FINE_LOCATION
@@ -335,7 +340,7 @@ fun Config(onAccountDeleted: () -> Unit,modifier: Modifier = Modifier) {
         locationPermission
     ) == PackageManager.PERMISSION_GRANTED
 
-    val allGranted = cameraGranted && locationGranted
+
     val authRepository = remember {
         AuthRepository(context = context)
     }
@@ -347,45 +352,84 @@ fun Config(onAccountDeleted: () -> Unit,modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.Center
     ) {
 
-        if (allGranted) {
-            Text(
-                text = "Câmera e Localização estão ativadas ✅",
-                fontWeight = FontWeight.Bold
-            )
-        } else {
 
-            Text(
-                text = "Algumas permissões estão desativadas ⚠",
-                fontWeight = FontWeight.Bold
-            )
+        val categories = listOf("Câmera", "Localização", "Apagar conta")
+        var showDialog by remember { mutableStateOf(false) }
 
-            Spacer(modifier = Modifier.height(16.dp))
+        Column(
+            modifier = modifier
+                .fillMaxHeight()
+                .fillMaxWidth()
 
-            Button(
-                onClick = {
-                    val intent = Intent(
-                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS
-                    ).apply {
-                        data = Uri.fromParts(
-                            "package",
-                            context.packageName,
-                            null
-                        )
-                    }
-                    context.startActivity(intent)
+
+        ) {
+
+            categories.forEach { label ->
+
+                val icon = when (label) {
+                    "Câmera" -> if(cameraGranted) Icons.Default.CameraAlt else Icons.Default.DisabledByDefault
+                    "Localização" -> if(locationGranted) Icons.Default.LocationOn else Icons.Default.LocationOff
+                    "Apagar conta" -> Icons.Default.Delete
+
+                    else -> Icons.Default.EmojiPeople
                 }
-            ) {
-                Text("Abrir Configurações do App")
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 14.dp, horizontal = 12.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            when(label){
+
+                                "Câmera", "Localização" -> {
+                                    val intent = Intent(
+                                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                                    ).apply {
+                                        data = Uri.fromParts(
+                                            "package",
+                                            context.packageName,
+                                            null
+                                        )
+                                    }
+                                    context.startActivity(intent)
+                                }
+
+                                "Apagar conta" -> {
+                                    showDialog = true
+                                }
+                            }
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+
+                ) {
+
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = label,
+                        tint = Black,
+                        modifier = Modifier.size(24.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Text(
+                        text = label,
+                        fontSize = 16.sp,
+                        color = Black,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                }
+                Spacer(modifier = Modifier.fillMaxWidth().background(color = Black).height(2.dp))
             }
         }
-        var showDialog by remember { mutableStateOf(false) }
-        var password by remember { mutableStateOf("") }
 
-        Button(onClick = {
-            showDialog = true
-        }) {
-            Text("Apagar conta")
-        }
+        var password by remember { mutableStateOf("") }
 
         if (showDialog) {
             AlertDialog(
@@ -449,6 +493,7 @@ fun Config(onAccountDeleted: () -> Unit,modifier: Modifier = Modifier) {
 fun InventarioTuristicoMenu(modifier: Modifier = Modifier){
     //var selectedPlace by remember { mutableStateOf<Place?>(null) }
     var namePlaces by remember { mutableStateOf("") }
+
     var placeFind by remember { mutableStateOf(false) }
     var showAll by remember { mutableStateOf(false) }
     var categoryFind by remember { mutableStateOf(false) }
@@ -499,6 +544,15 @@ fun InventarioTuristicoMenu(modifier: Modifier = Modifier){
             ) {
 
                 // 🔎 Linha de busca
+                Row(){
+                    Text("Procurar estabelecimento",
+                        fontSize = 25.sp,
+                        fontWeight = FontWeight.Bold)
+                    Icon(imageVector = Icons.Filled.Search,
+                        contentDescription = "Buscar")
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -513,17 +567,32 @@ fun InventarioTuristicoMenu(modifier: Modifier = Modifier){
                             onValueChange = {},
                             readOnly = true,
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                            modifier = Modifier.menuAnchor().border(1.dp, color = BorderLight, shape = RoundedCornerShape(16.dp)).width(245.dp),
+                            modifier = Modifier
+                                .menuAnchor()
+                                .border(1.dp, color = BorderLight, shape = RoundedCornerShape(16.dp))
+                                .width(245.dp),
                             colors = ExposedDropdownMenuDefaults.textFieldColors(
                                 unfocusedContainerColor = Color.Transparent,
-                                focusedContainerColor = Color.Transparent
+                                focusedContainerColor = Color.Transparent,
+
+                                // REMOVE A LINHA DE BAIXO
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                                disabledIndicatorColor = Color.Transparent
                             )
                         )
-                        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+
+                        ExposedDropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
                             categorias.forEach { option ->
                                 DropdownMenuItem(
                                     text = { Text(option) },
-                                    onClick = { selectedOption = option; expanded = false }
+                                    onClick = {
+                                        selectedOption = option
+                                        expanded = false
+                                    }
                                 )
                             }
                         }
@@ -538,10 +607,11 @@ fun InventarioTuristicoMenu(modifier: Modifier = Modifier){
                             contentColor = White
                         ),
 
-                    ) {
+                        ) {
                         Text("Buscar")
                     }
                 }
+                Spacer(modifier = Modifier.height(12.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -580,7 +650,7 @@ fun InventarioTuristicoMenu(modifier: Modifier = Modifier){
                         Text("Buscar")
                     }
                 }
-
+                Spacer(modifier = Modifier.height(12.dp))
                 // 📋 Botão exibir todos
                 Button(
                     onClick = { showAll = true },
@@ -609,6 +679,16 @@ fun InventarioTuristicoMenu(modifier: Modifier = Modifier){
         ) {
 
             items(places) { place ->
+                val geocoder = Geocoder(context, Locale.getDefault())
+                var endereco by remember { mutableStateOf("") }
+
+                LaunchedEffect(place.lat, place.longi) {
+                    val addresses = geocoder.getFromLocation(place.lat, place.longi, 1)
+
+                    if (!addresses.isNullOrEmpty()) {
+                        endereco = addresses[0].getAddressLine(0)
+                    }
+                }
 
                 Card(
                     shape = RoundedCornerShape(20.dp),
@@ -637,6 +717,7 @@ fun InventarioTuristicoMenu(modifier: Modifier = Modifier){
                             ){
                                 Text("X")
                             }
+
                             Text(
                                 text = place.name,
                                 fontSize = 20.sp,
@@ -677,11 +758,18 @@ fun InventarioTuristicoMenu(modifier: Modifier = Modifier){
 
                         // Descrição
                         Text(
-                            text = place.descricao,
+                            "Endereço: $endereco.",
                             fontSize = 14.sp,
                             color = TextSecondary,
                             lineHeight = 20.sp,
                             modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Justify
+                        )
+                        Text(
+                            "Descrição: ${place.descricao}",
+                            fontSize = 14.sp,
+                            color = TextSecondary,
+                            lineHeight = 20.sp,
                             textAlign = TextAlign.Justify
                         )
                     }
@@ -691,42 +779,53 @@ fun InventarioTuristicoMenu(modifier: Modifier = Modifier){
         }
     }else if(!showAll && placeFind && !categoryFind){
 
-            val foundPlace = places.find {
-                it.name.equals(namePlaces, ignoreCase = true)
-            }
+        val foundPlace = places.find {
+            it.name.equals(namePlaces, ignoreCase = true)
+        }
 
-            if (foundPlace == null) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+        if (foundPlace == null) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Button(
+                    onClick = {
+                        placeFind = false
+                        showAll = false
+                        categoryFind = false
+                    },
+                    modifier = Modifier.padding(bottom = 75.dp)
                 ) {
-                    Button(
-                        onClick = {
-                            placeFind = false
-                            showAll = false
-                            categoryFind = false
-                        },
-                        modifier = Modifier.padding(bottom = 75.dp)
-                    ) {
-                        Text("X")
-                    }
-                    Text(
-                        text = "Estabelecimento(s) não encontrado(s).",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = TextSecondary
-                    )
+                    Text("X")
                 }
-            } else {
-                LazyColumn(
-                    modifier = modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(vertical = 16.dp)
-                ) {
-                    items(places) { place ->
-                        if(place.name.toUpperCase() == foundPlace.name.toUpperCase())
+                Text(
+                    text = "Estabelecimento(s) não encontrado(s).",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = TextSecondary
+                )
+            }
+        } else {
+
+            LazyColumn(
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(vertical = 16.dp)
+            ) {
+                items(places) { place ->
+                    val geocoder = Geocoder(context, Locale.getDefault())
+                    var endereco by remember { mutableStateOf("") }
+
+                    LaunchedEffect(place.lat, place.longi) {
+                        val addresses = geocoder.getFromLocation(place.lat, place.longi, 1)
+
+                        if (!addresses.isNullOrEmpty()) {
+                            endereco = addresses[0].getAddressLine(0)
+                        }
+                    }
+                    if(place.name.toUpperCase() == foundPlace.name.toUpperCase())
                         Card(
                             shape = RoundedCornerShape(20.dp),
                             elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
@@ -784,9 +883,16 @@ fun InventarioTuristicoMenu(modifier: Modifier = Modifier){
                                 )
 
                                 Spacer(modifier = Modifier.height(12.dp))
-
                                 Text(
-                                    text = place.descricao,
+                                    "Endereço: $endereco.",
+                                    fontSize = 14.sp,
+                                    color = TextSecondary,
+                                    lineHeight = 20.sp,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Justify
+                                )
+                                Text(
+                                    "Descrição: ${place.descricao}",
                                     fontSize = 14.sp,
                                     color = TextSecondary,
                                     lineHeight = 20.sp,
@@ -794,9 +900,9 @@ fun InventarioTuristicoMenu(modifier: Modifier = Modifier){
                                 )
                             }
                         }
-                    }
-                     }
+                }
             }
+        }
     }else if(!showAll && !placeFind && categoryFind){
         val foundPCategory = places.find {
             it.categoria.equals(selectedOption, ignoreCase = true)
@@ -833,7 +939,16 @@ fun InventarioTuristicoMenu(modifier: Modifier = Modifier){
             ) {
 
                 items(places) { place ->
+                    val geocoder = Geocoder(context, Locale.getDefault())
+                    var endereco by remember { mutableStateOf("") }
 
+                    LaunchedEffect(place.lat, place.longi) {
+                        val addresses = geocoder.getFromLocation(place.lat, place.longi, 1)
+
+                        if (!addresses.isNullOrEmpty()) {
+                            endereco = addresses[0].getAddressLine(0)
+                        }
+                    }
                     if(place.categoria.toUpperCase() == selectedOption.toUpperCase()){
                         Card(
                             shape = RoundedCornerShape(20.dp),
@@ -901,11 +1016,18 @@ fun InventarioTuristicoMenu(modifier: Modifier = Modifier){
 
                                 // Descrição
                                 Text(
-                                    text = place.descricao,
+                                    "Endereço: $endereco.",
                                     fontSize = 14.sp,
                                     color = TextSecondary,
                                     lineHeight = 20.sp,
                                     modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Justify
+                                )
+                                Text(
+                                    "Descrição: ${place.descricao} ",
+                                    fontSize = 14.sp,
+                                    color = TextSecondary,
+                                    lineHeight = 20.sp,
                                     textAlign = TextAlign.Justify
                                 )
                             }
@@ -918,8 +1040,8 @@ fun InventarioTuristicoMenu(modifier: Modifier = Modifier){
         }
 
     }
-
 }
+
 @Composable
 private fun DrawerContent(
     onCategoryClick: (String) -> Unit,
@@ -937,65 +1059,54 @@ private fun DrawerContent(
             .padding(vertical = 24.dp, horizontal = 16.dp)
     ) {
         categories.forEach { label ->
-            Text(
-                text = label,
-                fontSize = 16.sp,
-                color = Black,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 14.dp, horizontal = 12.dp)
                     .clickable(
                         interactionSource = interactionSource,
                         indication = null,
-                        onClick = {
-                            onCategoryClick(label)
-                            Log.d("DRAWER", "Selecionado: $label")
-                        }
-                    )
-            )
+                        onClick = onSettingsClick
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = if(label == "Início") Icons.Default.Home else if (label == "Mapa") Icons.Default.Map else if (label == "Inventário") Icons.Default.AllInbox else if (label == "Configurações") Icons.Default.Settings else Icons.Default.EmojiPeople,
+                    contentDescription = if(label == "Início") "Início" else if (label == "Mapa") "Mapa" else if (label == "Inventário") "Inventário" else if (label == "Configurações") "Configurações" else "",
+                    tint = Black,
+                    modifier = Modifier.size(24.dp)
+                )
+
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Text(
+                    text = label,
+                    fontSize = 16.sp,
+                    color = Black,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 14.dp, horizontal = 12.dp)
+                        .clickable(
+                            interactionSource = interactionSource,
+                            indication = null,
+                            onClick = {
+                                onCategoryClick(label)
+                                Log.d("DRAWER", "Selecionado: $label")
+                            }
+                        )
+                )
+            }
+
         }
 
-        Spacer(modifier = Modifier.weight(1f))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 14.dp, horizontal = 12.dp)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null,
-                    onClick = onSettingsClick
-                ),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            /*
-            Icon(
-                imageVector = Icons.Default.Settings,
-                contentDescription = "Configurações",
-                tint = Black,
-                modifier = Modifier.size(24.dp)
-            )
-
-
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = "Configurações",
-                fontSize = 16.sp,
-                color = Black,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-             */
-        }
     }
 }
 @Composable
-fun showPhoto(authRepository: AuthRepository) {
+fun ShowPhoto(authRepository: AuthRepository) {
 
     var places by remember { mutableStateOf<List<Place>>(emptyList()) }
     var selectedPlace by remember { mutableStateOf<Place?>(null) }
@@ -1042,6 +1153,7 @@ fun showPhoto(authRepository: AuthRepository) {
         )
     }
 }
+
 @Composable
 fun MapPage(modifier: Modifier = Modifier) {
 
@@ -1064,7 +1176,7 @@ fun MapPage(modifier: Modifier = Modifier) {
             properties = MapProperties(isMyLocationEnabled = true),
             uiSettings = MapUiSettings(myLocationButtonEnabled = true)
         ) {
-            showPhoto(authRepository)
+            ShowPhoto(authRepository)
             MapEffect { map ->
                 map.setOnMyLocationButtonClickListener {
                     map.myLocation?.let {
@@ -1152,13 +1264,23 @@ fun MyLocationMenu(latitude: Double, longitude: Double, onDismiss: () -> Unit) {
     var selectedOption by remember { mutableStateOf("Alimentação") }
     var capturedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var isUploading by remember { mutableStateOf(false) }
+    var showCam by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val categorias = listOf("Alimentação", "Cultura", "Compras", "Turismo", "Serviços", "Religioso", "Histórico", "Natureza")
-
     val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
+        ActivityResultContracts.TakePicturePreview()
     ) { bitmap ->
         capturedBitmap = bitmap
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            cameraLauncher.launch()
+        } else {
+            Toast.makeText(context, "Permissão da câmera negada", Toast.LENGTH_SHORT).show()
+        }
     }
     val hasCameraPermission = ContextCompat.checkSelfPermission(
         context,
@@ -1173,7 +1295,7 @@ fun MyLocationMenu(latitude: Double, longitude: Double, onDismiss: () -> Unit) {
             .fillMaxHeight(0.9f)
             .verticalScroll(rememberScrollState())
     ) {
-        if(hasCameraPermission){
+
             Row(modifier = Modifier.fillMaxWidth()){
                 IconButton(onClick = onDismiss) {
                     Text("X", fontWeight = FontWeight.Bold, color = Black)
@@ -1212,7 +1334,10 @@ fun MyLocationMenu(latitude: Double, longitude: Double, onDismiss: () -> Unit) {
                     modifier = Modifier.fillMaxWidth().menuAnchor().border(1.dp, color = BorderLight, shape = RoundedCornerShape(16.dp)),
                     colors = ExposedDropdownMenuDefaults.textFieldColors(
                         unfocusedContainerColor = Color.Transparent,
-                        focusedContainerColor = Color.Transparent
+                        focusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        disabledIndicatorColor = Color.Transparent
                     )
                 )
                 ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -1228,12 +1353,12 @@ fun MyLocationMenu(latitude: Double, longitude: Double, onDismiss: () -> Unit) {
             Spacer(modifier = Modifier.height(12.dp))
             OutlinedTextField(
                 value = descricao,
-                onValueChange = { if (it.length <= 500) descricao = it },
+                onValueChange = { if (it.length <= 1000) descricao = it },
                 modifier = Modifier.fillMaxWidth().height(150.dp),
                 shape = RoundedCornerShape(16.dp),
                 placeholder = { Text("Descrição", fontStyle = FontStyle.Italic, fontSize = 14.sp) },
                 trailingIcon = {
-                    Text("${descricao.length}/500", fontSize = 10.sp, modifier = Modifier.padding(top = 100.dp, end = 10.dp))
+                    Text("${descricao.length}/1000", fontSize = 10.sp, modifier = Modifier.padding(top = 100.dp, end = 10.dp))
                 }
             )
 
@@ -1241,7 +1366,18 @@ fun MyLocationMenu(latitude: Double, longitude: Double, onDismiss: () -> Unit) {
 
             // Botão da Câmera
             Button(
-                onClick = { cameraLauncher.launch() },
+                onClick = {
+                    val permissionCheck = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.CAMERA
+                    )
+
+                    if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
+                        cameraLauncher.launch()
+                    } else {
+                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    }
+                          },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(26.dp),
                 colors = ButtonDefaults.buttonColors(
@@ -1310,15 +1446,33 @@ fun MyLocationMenu(latitude: Double, longitude: Double, onDismiss: () -> Unit) {
                 if (isUploading) CircularProgressIndicator(color = White, modifier = Modifier.size(24.dp))
                 else Text("Confirmar Registro", fontWeight = FontWeight.SemiBold)
             }
-        }else{
-            Text("Ative sua câmera para adicionar um novo estabelecimento.",
-                fontWeight = FontWeight.Bold,
-                fontStyle = FontStyle.Italic,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(top = 14.dp, start = 27.dp))
-        }
 
     }
+    var userProfile by remember { mutableStateOf<User?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+    if(showCam){
+        LaunchedEffect(Unit) {
+            authRepository.getCurrentUserProfile { result ->
+                isLoading = false
+                result.onSuccess { userProfile = it }
+                result.onFailure { loadError = it.message }
+                val permissionCheckCamera = ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.CAMERA
+                )
+
+                if (permissionCheckCamera != PackageManager.PERMISSION_GRANTED) {
+                    cameraPermissionLauncher.launch(
+                        Manifest.permission.CAMERA
+                    )
+
+                }
+            }
+
+        }
+    }
+
 }
 
 @Composable

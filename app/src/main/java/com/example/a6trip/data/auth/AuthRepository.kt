@@ -1,7 +1,6 @@
 package com.example.a6trip.data.auth
 
 import android.content.Context
-import androidx.compose.runtime.Composable
 import com.example.a6trip.ui.model.Place
 import com.example.a6trip.ui.model.User
 import com.google.firebase.Firebase
@@ -143,7 +142,7 @@ class AuthRepository(
                 onResult(Result.failure(e))
             }
     }
-    fun getCurrentUserProfile(onResult: (Result<User?>) -> Unit) {
+    fun getCurrentUserProfile(onResult:  (Result<User?>) -> Unit) {
         val uid = auth.currentUser?.uid ?: run {
             onResult(Result.success(null))
             return
